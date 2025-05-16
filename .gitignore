@@ -61,13 +61,13 @@ bower_components/
 .floo
 .flooignore
 
-# config files
-librechat.yaml
-librechat.yml
+# # config files
+# librechat.yaml
+# librechat.yml
 
 # Environment
 .npmrc
-.env*
+# .env*
 my.secrets
 !**/.env.example
 !**/.env.test.example
@@ -93,9 +93,9 @@ junit.xml
 **/.venv/
 **/venv/
 
-# docker override file
-docker-compose.override.yaml
-docker-compose.override.yml
+# # docker override file
+# docker-compose.override.yaml
+# docker-compose.override.yml
 
 # meilisearch
 meilisearch
