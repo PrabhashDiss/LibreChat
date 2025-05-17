@@ -129,7 +129,7 @@ actions:
     - "google.com"
 
 # Example MCP Servers Object Structure
-# mcpServers:
+mcpServers:
 #   everything:
 #     # type: sse # type can optionally be omitted
 #     url: http://localhost:3001/sse
@@ -155,6 +155,13 @@ actions:
 #       - -y
 #       - "mcp-obsidian"
 #       - /path/to/obsidian/vault
+  DuckDuckGo:
+    command: uvx
+    args:
+      - duckduckgo-mcp-server
+  WhatsApp:
+    type: sse
+    url: http://whatsapp-mcp-server:8004/sse
 
 # Definition of custom endpoints
 endpoints:
