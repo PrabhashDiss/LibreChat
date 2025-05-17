@@ -21,14 +21,53 @@
 
 # ---------------------------------------------------
 
-# services:
+services:
 
-# # USE LIBRECHAT CONFIG FILE
-#   api:
-#     volumes:
-#     - type: bind
-#       source: ./librechat.yaml
-#       target: /app/librechat.yaml
+# USE LIBRECHAT CONFIG FILE
+  api:
+    volumes:
+    - type: bind
+      source: ./librechat.yaml
+      target: /app/librechat.yaml
+
+  # WhatsApp Go Bridge Service
+  whatsapp-go-bridge:
+    build:
+      context: .  # Use project root as build context
+      dockerfile: ./mcp/whatsapp-go-bridge/Dockerfile # Specify path to Dockerfile
+    container_name: whatsapp_go_bridge
+    volumes:
+      # Persistent storage for WhatsApp data (DB, session files)
+      - whatsapp_store_volume:/app/store
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    environment:
+      - CGO_ENABLED=1
+
+  # WhatsApp Python MCP Server (via Supergateway)
+  whatsapp-mcp-server:
+    build:
+      context: .  # Use project root as build context
+      dockerfile: ./mcp/whatsapp-mcp-server/Dockerfile # Specify path to Dockerfile
+    container_name: whatsapp_mcp_server
+    ports:
+      - "8004:8004"
+    volumes:
+      # Share the same WhatsApp store volume
+      - whatsapp_store_volume:/whatsapp_data_volume
+    restart: unless-stopped
+    depends_on:
+      - whatsapp-go-bridge
+    environment:
+      - DATABASE_URL=sqlite:////whatsapp_data_volume/messages.db
+      - WHATSAPP_BRIDGE_URL=http://whatsapp-go-bridge:8080/api
+      # - PYTHONUNBUFFERED=1 # Optional: for immediate Python print output in logs
+
+# Define the named volume for WhatsApp data
+volumes:
+  whatsapp_store_volume:
+    driver: local
 
 # # LOCAL BUILD
 #   api:
