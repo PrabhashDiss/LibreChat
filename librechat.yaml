@@ -162,6 +162,10 @@ mcpServers:
   WhatsApp:
     type: sse
     url: http://whatsapp-mcp-server:8004/sse
+  DateTime:
+    command: uvx
+    args:
+      - mcp-datetime
 
 # Definition of custom endpoints
 endpoints:
