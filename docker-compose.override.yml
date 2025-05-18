@@ -64,6 +64,25 @@ services:
       - WHATSAPP_BRIDGE_URL=http://whatsapp-go-bridge:8080/api
       # - PYTHONUNBUFFERED=1 # Optional: for immediate Python print output in logs
 
+  # Python Executor MCP Server
+  safe-local-python-executor:
+    build:
+      context: ./mcp/safe-local-python-executor  # Path to the Dockerfile directory
+    container_name: safe_local_python_executor
+    ports:
+      - "8005:8005"
+    # environment:
+    #   # Add any environment variables your Python script might need
+    #   # - PYTHON_TOOL_API_KEY=${PYTHON_TOOL_API_KEY_FROM_ENV_FILE}
+    volumes:
+      # Mount your Python executor code from the third_party directory on the host
+      # to /app/executor_code inside the container.
+      # The path on the host (left side) is relative to your docker-compose.yml file.
+      # The path in the container (right side) must match the WORKDIR in the Dockerfile
+      # or where the CMD expects the code.
+      - ./third_party/mcp_safe_local_python_executor:/app/executor_code
+    restart: unless-stopped
+
 # Define the named volume for WhatsApp data
 volumes:
   whatsapp_store_volume:

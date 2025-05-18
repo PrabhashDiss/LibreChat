@@ -166,6 +166,9 @@ mcpServers:
     command: uvx
     args:
       - mcp-datetime
+  Safe_Local_Python_Executor:
+    type: sse
+    url: "http://safe-local-python-executor:8005/sse"
 
 # Definition of custom endpoints
 endpoints:
