@@ -1,3 +1,6 @@
 [submodule "third_party/whatsapp-mcp"]
 	path = third_party/whatsapp-mcp
 	url = https://github.com/PrabhashDiss/whatsapp-mcp.git
+[submodule "third_party/mcp_safe_local_python_executor"]
+	path = third_party/mcp_safe_local_python_executor
+	url = https://github.com/maxim-saplin/mcp_safe_local_python_executor.git
