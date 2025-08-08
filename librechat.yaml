@@ -169,6 +169,16 @@ mcpServers:
   Safe_Local_Python_Executor:
     type: sse
     url: "http://safe-local-python-executor:8005/sse"
+  Memory:
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-memory"
+  Sequential_Thinking:
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-sequential-thinking"
 
 # Definition of custom endpoints
 endpoints:
