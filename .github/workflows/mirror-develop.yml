@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Push LibreChat to B.Free (force mirror, no history, exclude workflows/.git)
+      - name: Push LibreChat to B.Free (clone target, orphan commit, exclude workflows/.git)
         env:
           MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
           GH_PAT_FALLBACK: ${{ secrets.GH_PAT }}
@@ -48,33 +48,42 @@ jobs:
           # Default target branch to 'mirror/<source-branch>' if not provided
           TARGET_BRANCH=${TARGET_BRANCH:-"mirror/${GITHUB_REF_NAME}"}
 
-          # Prepare remote and verify access
-          git config --global --unset-all http.https://github.com/.extraheader || true
-          git remote add mirror "https://x-access-token:${GH_PAT}@github.com/${TARGET_REPO}.git"
+          # Ensure we are mirroring the latest origin/develop
+          git fetch --no-tags --depth=1 origin develop
+          git checkout -B develop origin/develop
 
-          if ! git ls-remote --exit-code --heads mirror >/dev/null 2>&1; then
+          # Build a filtered source snapshot excluding .git and workflows
+          SRC_DIR="$(mktemp -d)"
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.github/workflows' \
+            ./ "$SRC_DIR"/
+
+          # Clone the target repo (shallow) and prepare an orphan commit
+          TARGET_URL="https://x-access-token:${GH_PAT}@github.com/${TARGET_REPO}.git"
+          TARGET_DIR="$(mktemp -d)"
+
+          if ! git ls-remote --exit-code "$TARGET_URL" >/dev/null 2>&1; then
             echo "Authentication/authorization failed for ${TARGET_REPO}. Ensure the PAT has sufficient scopes and push access." >&2
             echo "Required: classic PAT with 'repo' scope, or fine-grained PAT with 'Contents: Read and write' for ${TARGET_REPO}." >&2
             exit 1
           fi
 
-          # Ensure we are mirroring the latest origin/develop
-          git fetch --no-tags --depth=1 origin develop
-          git checkout -B develop origin/develop
+          git clone --no-tags --depth=1 "$TARGET_URL" "$TARGET_DIR"
 
-          # Build a fresh orphan commit from develop, excluding .github/workflows and .git
-          WORKDIR="$(mktemp -d)"
+          pushd "$TARGET_DIR" >/dev/null
 
-          rsync -a --delete \
-            --exclude='.git' \
-            --exclude='.github/workflows' \
-            ./ "$WORKDIR"/
-
-          pushd "$WORKDIR" >/dev/null
-
-          git init -b mirror-root
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
+
+          # Create an orphan branch to ensure no history
+          git checkout --orphan mirror-tmp
+
+          # Remove all files except .git from working tree
+          find . -mindepth 1 -maxdepth 1 -not -name '.git' -exec rm -rf {} +
+
+          # Copy filtered snapshot into target repo
+          rsync -a --delete "$SRC_DIR"/ ./
 
           git add -A
           if git diff --cached --quiet; then
@@ -82,14 +91,13 @@ jobs:
             exit 1
           fi
 
-          git commit -m "Mirror snapshot from develop (exclude .github/workflows, no history)"
+          git commit -m "Mirror snapshot from LibreChat develop (exclude .github/workflows; reset history)"
 
-          # Add remote and force-push as a new history (single commit)
-          git remote add mirror "https://x-access-token:${GH_PAT}@github.com/${TARGET_REPO}.git"
-          git push --force mirror "HEAD:refs/heads/${TARGET_BRANCH}"
+          # Rename orphan branch to target and force-push
+          git branch -M "${TARGET_BRANCH}"
+          git push --force origin "${TARGET_BRANCH}"
 
           popd >/dev/null
-          rm -rf "$WORKDIR"
 
-          # Optional: push tags alongside if you want them mirrored too (commented out by default)
-          # (Not applicable for orphan snapshot)
+          # Clean up temp dirs
+          rm -rf "$SRC_DIR" "$TARGET_DIR"
