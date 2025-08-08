@@ -20,20 +20,32 @@ jobs:
 
       - name: Push LibreChat to B.Free (force mirror)
         env:
-          GH_PAT: ${{ secrets.MIRROR_PAT }}
+          MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
+          GH_PAT_FALLBACK: ${{ secrets.GH_PAT }}
+          PAT_FALLBACK: ${{ secrets.PAT }}
           TARGET_REPO: PrabhashDiss/B.Free
-          TARGET_BRANCH: mirror
+          TARGET_BRANCH: mirror/develop
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ -z "${TARGET_REPO:-}" ]]; then
-            echo "TARGET_REPO secret not set (expected format: owner/B.Free)" >&2
+          # Resolve a usable PAT from available secrets
+          GH_PAT="${MIRROR_PAT:-}"
+          [[ -z "${GH_PAT}" ]] && GH_PAT="${GH_PAT_FALLBACK:-}"
+          [[ -z "${GH_PAT}" ]] && GH_PAT="${PAT_FALLBACK:-}"
+
+          if [[ -z "${GH_PAT:-}" ]]; then
+            echo "Missing PAT. Create a Personal Access Token with 'repo' scope that has push access to ${TARGET_REPO} and add it as a repository secret named 'MIRROR_PAT' (or 'GH_PAT'/'PAT')." >&2
             exit 1
           fi
 
-          # Default target branch to 'develop' if not provided
-          TARGET_BRANCH=${TARGET_BRANCH:-develop}
+          if [[ -z "${TARGET_REPO:-}" ]]; then
+            echo "TARGET_REPO not set (expected format: owner/repo)" >&2
+            exit 1
+          fi
+
+          # Default target branch to 'mirror/<source-branch>' if not provided
+          TARGET_BRANCH=${TARGET_BRANCH:-"mirror/${GITHUB_REF_NAME}"}
 
           git remote add mirror "https://${GH_PAT}@github.com/${TARGET_REPO}.git"
 
@@ -44,7 +56,7 @@ jobs:
           fi
 
           # Force-update target branch to exactly match local develop (no merge commits)
-          git push --force --prune mirror "refs/heads/develop:refs/heads/${TARGET_BRANCH}"
+          git push --force mirror "refs/heads/develop:refs/heads/${TARGET_BRANCH}"
 
           # Optional: push tags alongside if you want them mirrored too (commented out by default)
           # git push --force --tags mirror
