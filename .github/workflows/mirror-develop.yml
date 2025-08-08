@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Push LibreChat to B.Free (force mirror)
+      - name: Push LibreChat to B.Free (force mirror, no history, exclude workflows/.git)
         env:
           MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
           GH_PAT_FALLBACK: ${{ secrets.GH_PAT }}
@@ -48,46 +48,48 @@ jobs:
           # Default target branch to 'mirror/<source-branch>' if not provided
           TARGET_BRANCH=${TARGET_BRANCH:-"mirror/${GITHUB_REF_NAME}"}
 
-          # Clear any default auth header set by actions/checkout
+          # Prepare remote and verify access
           git config --global --unset-all http.https://github.com/.extraheader || true
-
-          # Use x-access-token form and explicit PAT
           git remote add mirror "https://x-access-token:${GH_PAT}@github.com/${TARGET_REPO}.git"
 
-          # Preflight: verify PAT can access the target repo
           if ! git ls-remote --exit-code --heads mirror >/dev/null 2>&1; then
             echo "Authentication/authorization failed for ${TARGET_REPO}. Ensure the PAT has sufficient scopes and push access." >&2
             echo "Required: classic PAT with 'repo' scope, or fine-grained PAT with 'Contents: Read and write' for ${TARGET_REPO}." >&2
             exit 1
           fi
 
-          # Ensure we have the local develop branch
-          if ! git show-ref --verify --quiet refs/heads/develop; then
-            echo "Local 'develop' branch not found" >&2
-            exit 1
-          fi
+          # Ensure we are mirroring the latest origin/develop
+          git fetch --no-tags --depth=1 origin develop
+          git checkout -B develop origin/develop
 
-          # Create a temporary branch from develop to filter out workflows
-          git checkout -B mirror-filter develop
+          # Build a fresh orphan commit from develop, excluding .github/workflows and .git
+          WORKDIR="$(mktemp -d)"
 
-          # Configure author for the commit
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.github/workflows' \
+            ./ "$WORKDIR"/
+
+          pushd "$WORKDIR" >/dev/null
+
+          git init -b mirror-root
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-          # Remove the workflows directory from the index (ignore if missing)
-          git rm -r --cached --force --ignore-unmatch .github/workflows || true
-
-          # Commit only if there are staged changes
-          if ! git diff --cached --quiet; then
-            git commit -m "Mirror: exclude .github/workflows from mirror"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No files to commit after exclusions; aborting push." >&2
+            exit 1
           fi
 
-          # Force-update target branch to match the filtered snapshot
-          git push --force mirror "refs/heads/mirror-filter:refs/heads/${TARGET_BRANCH}"
+          git commit -m "Mirror snapshot from develop (exclude .github/workflows, no history)"
 
-          # Clean up
-          git checkout -f develop
-          git branch -D mirror-filter || true
+          # Add remote and force-push as a new history (single commit)
+          git remote add mirror "https://x-access-token:${GH_PAT}@github.com/${TARGET_REPO}.git"
+          git push --force mirror "HEAD:refs/heads/${TARGET_BRANCH}"
+
+          popd >/dev/null
+          rm -rf "$WORKDIR"
 
           # Optional: push tags alongside if you want them mirrored too (commented out by default)
-          # git push --force --tags mirror
+          # (Not applicable for orphan snapshot)
