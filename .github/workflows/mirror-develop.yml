@@ -67,8 +67,27 @@ jobs:
             exit 1
           fi
 
-          # Force-update target branch to exactly match local develop (no merge commits)
-          git push --force mirror "refs/heads/develop:refs/heads/${TARGET_BRANCH}"
+          # Create a temporary branch from develop to filter out workflows
+          git checkout -B mirror-filter develop
+
+          # Configure author for the commit
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # Remove the workflows directory from the index (ignore if missing)
+          git rm -r --cached --force --ignore-unmatch .github/workflows || true
+
+          # Commit only if there are staged changes
+          if ! git diff --cached --quiet; then
+            git commit -m "Mirror: exclude .github/workflows from mirror"
+          fi
+
+          # Force-update target branch to match the filtered snapshot
+          git push --force mirror "refs/heads/mirror-filter:refs/heads/${TARGET_BRANCH}"
+
+          # Clean up
+          git checkout -f develop
+          git branch -D mirror-filter || true
 
           # Optional: push tags alongside if you want them mirrored too (commented out by default)
           # git push --force --tags mirror
