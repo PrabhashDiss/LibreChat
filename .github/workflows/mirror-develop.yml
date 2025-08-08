@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Push LibreChat to B.Free (force mirror)
         env:
@@ -47,7 +48,18 @@ jobs:
           # Default target branch to 'mirror/<source-branch>' if not provided
           TARGET_BRANCH=${TARGET_BRANCH:-"mirror/${GITHUB_REF_NAME}"}
 
-          git remote add mirror "https://${GH_PAT}@github.com/${TARGET_REPO}.git"
+          # Clear any default auth header set by actions/checkout
+          git config --global --unset-all http.https://github.com/.extraheader || true
+
+          # Use x-access-token form and explicit PAT
+          git remote add mirror "https://x-access-token:${GH_PAT}@github.com/${TARGET_REPO}.git"
+
+          # Preflight: verify PAT can access the target repo
+          if ! git ls-remote --exit-code --heads mirror >/dev/null 2>&1; then
+            echo "Authentication/authorization failed for ${TARGET_REPO}. Ensure the PAT has sufficient scopes and push access." >&2
+            echo "Required: classic PAT with 'repo' scope, or fine-grained PAT with 'Contents: Read and write' for ${TARGET_REPO}." >&2
+            exit 1
+          fi
 
           # Ensure we have the local develop branch
           if ! git show-ref --verify --quiet refs/heads/develop; then
