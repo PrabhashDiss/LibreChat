@@ -1,0 +1,50 @@
+name: Mirror LibreChat to B.Free
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror-LibreChat-to-BFree:
+    name: Mirror LibreChat to B.Free
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push LibreChat to B.Free (force mirror)
+        env:
+          GH_PAT: ${{ secrets.MIRROR_PAT }}
+          TARGET_REPO: PrabhashDiss/B.Free
+          TARGET_BRANCH: mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${TARGET_REPO:-}" ]]; then
+            echo "TARGET_REPO secret not set (expected format: owner/B.Free)" >&2
+            exit 1
+          fi
+
+          # Default target branch to 'develop' if not provided
+          TARGET_BRANCH=${TARGET_BRANCH:-develop}
+
+          git remote add mirror "https://${GH_PAT}@github.com/${TARGET_REPO}.git"
+
+          # Ensure we have the local develop branch
+          if ! git show-ref --verify --quiet refs/heads/develop; then
+            echo "Local 'develop' branch not found" >&2
+            exit 1
+          fi
+
+          # Force-update target branch to exactly match local develop (no merge commits)
+          git push --force --prune mirror "refs/heads/develop:refs/heads/${TARGET_BRANCH}"
+
+          # Optional: push tags alongside if you want them mirrored too (commented out by default)
+          # git push --force --tags mirror
