@@ -179,6 +179,25 @@ mcpServers:
     args:
       - -y
       - "@modelcontextprotocol/server-sequential-thinking"
+  Google_Tasks:
+    type: sse
+    url: https://mcp.zapier.com/api/mcp/s/YOUR_GOOGLE_TASKS_TOKEN/sse
+  Notion:
+    type: sse
+    url: https://mcp.zapier.com/api/mcp/s/YOUR_NOTION_TOKEN/sse
+  Google_Calendar:
+    type: sse
+    url: https://mcp.zapier.com/api/mcp/s/YOUR_GOOGLE_CALENDAR_TOKEN/sse
+  Gmail:
+    type: sse
+    url: https://mcp.zapier.com/api/mcp/s/YOUR_GMAIL_TOKEN/sse
+  GitHub:
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-github"
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
 
 # Definition of custom endpoints
 endpoints:
